@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import {HttpClient} from '@angular/common/http';
+import {HttpClient, HttpErrorResponse} from '@angular/common/http';
 import {Observable, throwError} from 'rxjs';
 import {catchError} from 'rxjs/operators';
 
@@ -29,21 +29,31 @@ export class AuthService {
       email,
       password,
       returnSecureToken: true
-    }).pipe(catchError(errorResult => {
-      let errorMessage = 'An unknown error occured';
-      if (errorResult.error && errorResult.error.error) {
-        switch (errorResult.error.error.message) {
-          case 'EMAIL_EXISTS': errorMessage = 'E-Mail already in use'; break;
-        }
-      }
+    }).pipe(catchError(this.handleError));
+  }
 
-      return throwError(errorMessage);
-    }));
+
+  private handleError(errorResult: HttpErrorResponse) {
+    let errorMessage = 'An unknown error occured';
+    if (errorResult.error && errorResult.error.error) {
+      switch (errorResult.error.error.message) {
+        case 'EMAIL_EXISTS':
+          errorMessage = 'E-Mail already in use';
+          break;
+        case 'EMAIL_NOT_FOUND':
+          errorMessage = 'E-Mail does not exist';
+          break;
+        case 'INVALID_PASSWORD':
+          errorMessage = 'Password invalid';
+          break;
+      }
+    }
+    return throwError(errorMessage);
   }
 
   login(email: string, password: string): Observable<AuthResponseData> {
     return this.http.post<AuthResponseData>(AuthService.LOGIN_ENDPOINT, {
       email, password, returnSecureToken: true
-    });
+    }).pipe(catchError(this.handleError));
   }
 }
