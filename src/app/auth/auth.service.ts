@@ -1,7 +1,8 @@
 import {Injectable} from '@angular/core';
 import {HttpClient, HttpErrorResponse} from '@angular/common/http';
-import {Observable, throwError} from 'rxjs';
-import {catchError} from 'rxjs/operators';
+import {Observable, Subject, throwError} from 'rxjs';
+import {catchError, tap} from 'rxjs/operators';
+import {User} from './user.model';
 
 export interface AuthResponseData {
   kind: string;
@@ -22,6 +23,8 @@ export class AuthService {
   private static readonly SIGNUP_ENDPOINT = `${AuthService.ACCOUNTS_ENDPOINT}:signUp?key=${AuthService.API_KEY}`;
   private static readonly LOGIN_ENDPOINT = `${AuthService.ACCOUNTS_ENDPOINT}:signInWithPassword?key=${AuthService.API_KEY}`;
 
+  user = new Subject<User>();
+
   constructor(private http: HttpClient) {}
 
   signup(email: string, password: string): Observable<AuthResponseData> {
@@ -29,9 +32,14 @@ export class AuthService {
       email,
       password,
       returnSecureToken: true
-    }).pipe(catchError(this.handleError));
+    }).pipe(catchError(this.handleError), tap(this.handleAuthentication));
   }
 
+  private handleAuthentication(response: AuthResponseData) {
+    const expirationDate = new Date(new Date().getTime() + +response.expiresIn * 1000);
+    const user = new User(response.email, response.localId, response.idToken, expirationDate);
+    this.user.next(user);
+  }
 
   private handleError(errorResult: HttpErrorResponse) {
     let errorMessage = 'An unknown error occured';
@@ -54,6 +62,6 @@ export class AuthService {
   login(email: string, password: string): Observable<AuthResponseData> {
     return this.http.post<AuthResponseData>(AuthService.LOGIN_ENDPOINT, {
       email, password, returnSecureToken: true
-    }).pipe(catchError(this.handleError));
+    }).pipe(catchError(this.handleError), tap(this.handleAuthentication));
   }
 }
