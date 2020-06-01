@@ -40,6 +40,8 @@ export class AuthService {
     const expirationDate = new Date(new Date().getTime() + +response.expiresIn * 1000);
     const user = new User(response.email, response.localId, response.idToken, expirationDate);
     this.user.next(user);
+
+    localStorage.setItem('userData', JSON.stringify(user));
   }
 
   private handleError(errorResult: HttpErrorResponse) {
@@ -59,7 +61,25 @@ export class AuthService {
     }
     return throwError(errorMessage);
   }
+  autoLogin() {
+    const userData: {
+      email: string;
+      id: string;
+      _token: string;
+      _tokenExpirationDate: string; // not converted yet
+    } = JSON.parse(localStorage.getItem('userData'));
+    if (userData) {
+      const loadedUser = new User(
+        userData.email,
+        userData.id,
+        userData._token,
+        new Date(userData._tokenExpirationDate));
 
+      if (loadedUser.token) {
+        this.user.next(loadedUser);
+      }
+    }
+  }
   login(email: string, password: string): Observable<AuthResponseData> {
     return this.http.post<AuthResponseData>(AuthService.LOGIN_ENDPOINT, {
       email, password, returnSecureToken: true
